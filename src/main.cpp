@@ -17,6 +17,7 @@ struct Options {
     std::size_t steps = 100; // Total time steps n (produces n+1 points)
     std::optional<std::uint64_t> seed;
     bool plot = true;
+    double plot_width_cm = 10.0;
     bool show_tree = true;
     bool show_mst = true;
     bool print_lengths = true;
@@ -40,7 +41,6 @@ struct MstResult {
 namespace {
 
 constexpr double kInfinity = 1e300;
-constexpr double kTargetPlotWidthCm = 10.0;
 constexpr double kMinimumExtent = 1e-6;
 
 void print_usage(const std::string &program) {
@@ -55,6 +55,7 @@ void print_usage(const std::string &program) {
               << "  --steps <int>            Number of steps n (default: 100, produces n+1 points).\n"
               << "  --seed <int>             Optional RNG seed for reproducibility.\n"
               << "  --[no-]plot              Enable/disable TikZ output (default: on).\n"
+              << "  --width <double>         Target plot width in cm (default: 10.0).\n"
               << "  --[no-]tree              Show construction tree in TikZ (default: on).\n"
               << "  --[no-]mst               Show minimum spanning tree in TikZ (default: on).\n"
               << "  --[no-]lengths           Print lengths of the construction tree and MST (default: on).\n"
@@ -86,6 +87,14 @@ Options parse_arguments(int argc, char **argv) {
                 throw std::invalid_argument("--steps must be non-negative");
             }
             opts.steps = static_cast<std::size_t>(value);
+        } else if (arg == "--width") {
+            if (i + 1 >= argc) {
+                throw std::invalid_argument("--width requires a value");
+            }
+            opts.plot_width_cm = std::stod(argv[++i]);
+            if (!(opts.plot_width_cm > 0.0)) {
+                throw std::invalid_argument("--width must be positive");
+            }
         } else if (arg == "--seed") {
             if (i + 1 >= argc) {
                 throw std::invalid_argument("--seed requires a value");
@@ -278,6 +287,7 @@ std::string render_tikz(const std::vector<Point> &points,
                         const MstResult *mst,
                         bool show_tree,
                         bool show_mst,
+                        double plot_width_cm,
                         double dot_size_pt,
                         double tree_line_width_pt,
                         double mst_line_width_pt) {
@@ -286,7 +296,7 @@ std::string render_tikz(const std::vector<Point> &points,
 
     double extent = symmetric_extent(points);
     double box_width = 2.0 * extent;
-    double scale_cm = kTargetPlotWidthCm / box_width;
+    double scale_cm = plot_width_cm / box_width;
 
     tikz << "\\begin{tikzpicture}[x=" << scale_cm << "cm,y=" << scale_cm << "cm]\n";
     tikz << "  \\path[use as bounding box] (" << -extent << "," << -extent << ") rectangle (" << extent << ","
@@ -353,6 +363,7 @@ int main(int argc, char **argv) {
                                        mst_ptr,
                                        opts.show_tree,
                                        opts.show_mst,
+                                       opts.plot_width_cm,
                                        opts.dot_size_pt,
                                        opts.tree_line_width_pt,
                                        opts.mst_line_width_pt);
