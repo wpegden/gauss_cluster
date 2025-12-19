@@ -1,0 +1,3 @@
+# Build artifacts
+/gauss_cluster
+*.o
