@@ -40,6 +40,8 @@ struct MstResult {
 namespace {
 
 constexpr double kInfinity = 1e300;
+constexpr double kTargetPlotWidthCm = 10.0;
+constexpr double kMinimumExtent = 1e-6;
 
 void print_usage(const std::string &program) {
     std::cerr << "Usage: " << program << " --alpha <alpha> [options]\n"
@@ -195,6 +197,14 @@ std::vector<Point> generate_points(const Options &opts) {
     return points;
 }
 
+double symmetric_extent(const std::vector<Point> &points) {
+    double max_abs = 0.0;
+    for (const auto &p : points) {
+        max_abs = std::max({max_abs, std::fabs(p.x), std::fabs(p.y)});
+    }
+    return std::max(max_abs, kMinimumExtent);
+}
+
 double construction_tree_length(const std::vector<Point> &points) {
     double length = 0.0;
     for (std::size_t i = 1; i < points.size(); ++i) {
@@ -250,13 +260,18 @@ MstResult compute_mst(const std::vector<Point> &points) {
     return {total_length, edges};
 }
 
-double extent_for_points(const std::vector<Point> &points) {
-    double max_abs = 1.0; // Keep at least a unit box in case of tiny clouds
-    for (const auto &p : points) {
-        max_abs = std::max({max_abs, std::fabs(p.x), std::fabs(p.y)});
+double point_set_diameter(const std::vector<Point> &points) {
+    if (points.size() <= 1) {
+        return 0.0;
     }
-    // Add a small margin to prevent points on the frame
-    return max_abs * 1.05;
+
+    double max_dist = 0.0;
+    for (std::size_t i = 0; i + 1 < points.size(); ++i) {
+        for (std::size_t j = i + 1; j < points.size(); ++j) {
+            max_dist = std::max(max_dist, euclidean_distance(points[i], points[j]));
+        }
+    }
+    return max_dist;
 }
 
 std::string render_tikz(const std::vector<Point> &points,
@@ -269,10 +284,13 @@ std::string render_tikz(const std::vector<Point> &points,
     std::ostringstream tikz;
     tikz << std::fixed << std::setprecision(5);
 
-    double extent = extent_for_points(points);
-    tikz << "\\begin{tikzpicture}[x=1cm,y=1cm]\n";
-    tikz << "  \\path[use as bounding box] (" << -extent << "," << -extent << ") rectangle (" << extent
-         << "," << extent << ");\n";
+    double extent = symmetric_extent(points);
+    double box_width = 2.0 * extent;
+    double scale_cm = kTargetPlotWidthCm / box_width;
+
+    tikz << "\\begin{tikzpicture}[x=" << scale_cm << "cm,y=" << scale_cm << "cm]\n";
+    tikz << "  \\path[use as bounding box] (" << -extent << "," << -extent << ") rectangle (" << extent << ","
+         << extent << ");\n";
 
     if (show_tree) {
         for (std::size_t i = 1; i < points.size(); ++i) {
@@ -314,6 +332,7 @@ int main(int argc, char **argv) {
 
     std::vector<Point> points = generate_points(opts);
     double tree_length = construction_tree_length(points);
+    double diameter = point_set_diameter(points);
 
     MstResult mst;
     bool need_mst = opts.show_mst || opts.print_lengths;
@@ -325,6 +344,7 @@ int main(int argc, char **argv) {
         std::cout << std::fixed << std::setprecision(6);
         std::cout << "Construction tree length: " << tree_length << "\n";
         std::cout << "MST length: " << mst.length << "\n";
+        std::cout << "Point set diameter: " << diameter << "\n";
     }
 
     if (opts.plot) {

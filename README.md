@@ -39,8 +39,8 @@ Run the simulator by providing an `\alpha > 0` value and the number of time step
 
 ### Output
 
-- **Lengths**: When enabled (default), the program prints the total Euclidean length of the construction tree and the MST.
-- **TikZ**: When plotting is enabled (default), TikZ code is printed to stdout or the path supplied with `--output`. Points are black dots, construction-tree edges are thin black lines, and MST edges are blue lines. The origin is centered and the aspect ratio is square.
+- **Lengths**: When enabled (default), the program prints the total Euclidean length of the construction tree and the MST, along with the diameter of the point set.
+- **TikZ**: When plotting is enabled (default), TikZ code is printed to stdout or the path supplied with `--output`. Points are black dots, construction-tree edges are thin black lines, and MST edges are blue lines. The plot is cropped to the smallest origin-centered square containing all points and is scaled to a consistent width on the page.
 
 ### Example
 
