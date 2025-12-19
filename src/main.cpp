@@ -20,6 +20,9 @@ struct Options {
     bool show_tree = true;
     bool show_mst = true;
     bool print_lengths = true;
+    double dot_size_pt = 1.0;
+    double tree_line_width_pt = 0.25;
+    double mst_line_width_pt = 0.4;
     std::string output_path;
 };
 
@@ -53,6 +56,9 @@ void print_usage(const std::string &program) {
               << "  --[no-]tree              Show construction tree in TikZ (default: on).\n"
               << "  --[no-]mst               Show minimum spanning tree in TikZ (default: on).\n"
               << "  --[no-]lengths           Print lengths of the construction tree and MST (default: on).\n"
+              << "  --dot-size <double>      Radius of plotted points in pt (default: 1.0).\n"
+              << "  --tree-width <double>    Line width of construction tree in pt (default: 0.25).\n"
+              << "  --mst-width <double>     Line width of MST in pt (default: 0.4).\n"
               << "  --output <path>          Write TikZ to a file instead of stdout.\n"
               << "  --help                   Show this message.\n";
 }
@@ -103,6 +109,30 @@ Options parse_arguments(int argc, char **argv) {
             opts.print_lengths = true;
         } else if (arg == "--no-lengths") {
             opts.print_lengths = false;
+        } else if (arg == "--dot-size") {
+            if (i + 1 >= argc) {
+                throw std::invalid_argument("--dot-size requires a value");
+            }
+            opts.dot_size_pt = std::stod(argv[++i]);
+            if (!(opts.dot_size_pt > 0.0)) {
+                throw std::invalid_argument("--dot-size must be positive");
+            }
+        } else if (arg == "--tree-width") {
+            if (i + 1 >= argc) {
+                throw std::invalid_argument("--tree-width requires a value");
+            }
+            opts.tree_line_width_pt = std::stod(argv[++i]);
+            if (!(opts.tree_line_width_pt > 0.0)) {
+                throw std::invalid_argument("--tree-width must be positive");
+            }
+        } else if (arg == "--mst-width") {
+            if (i + 1 >= argc) {
+                throw std::invalid_argument("--mst-width requires a value");
+            }
+            opts.mst_line_width_pt = std::stod(argv[++i]);
+            if (!(opts.mst_line_width_pt > 0.0)) {
+                throw std::invalid_argument("--mst-width must be positive");
+            }
         } else if (arg == "--output") {
             if (i + 1 >= argc) {
                 throw std::invalid_argument("--output requires a value");
@@ -232,7 +262,10 @@ double extent_for_points(const std::vector<Point> &points) {
 std::string render_tikz(const std::vector<Point> &points,
                         const MstResult *mst,
                         bool show_tree,
-                        bool show_mst) {
+                        bool show_mst,
+                        double dot_size_pt,
+                        double tree_line_width_pt,
+                        double mst_line_width_pt) {
     std::ostringstream tikz;
     tikz << std::fixed << std::setprecision(5);
 
@@ -245,8 +278,8 @@ std::string render_tikz(const std::vector<Point> &points,
         for (std::size_t i = 1; i < points.size(); ++i) {
             const Point &child = points[i];
             const Point &parent = points[child.parent];
-            tikz << "  \\draw[black!70, line width=0.25pt] (" << parent.x << "," << parent.y << ") -- ("
-                 << child.x << "," << child.y << ");\n";
+            tikz << "  \\draw[black!70, line width=" << tree_line_width_pt << "pt] (" << parent.x << ","
+                 << parent.y << ") -- (" << child.x << "," << child.y << ");\n";
         }
     }
 
@@ -254,13 +287,13 @@ std::string render_tikz(const std::vector<Point> &points,
         for (const auto &edge : mst->edges) {
             const Point &a = points[edge.first];
             const Point &b = points[edge.second];
-            tikz << "  \\draw[blue, line width=0.4pt] (" << a.x << "," << a.y << ") -- (" << b.x << ","
-                 << b.y << ");\n";
+            tikz << "  \\draw[blue, line width=" << mst_line_width_pt << "pt] (" << a.x << "," << a.y
+                 << ") -- (" << b.x << "," << b.y << ");\n";
         }
     }
 
     for (const auto &p : points) {
-        tikz << "  \\filldraw[black] (" << p.x << "," << p.y << ") circle (1pt);\n";
+        tikz << "  \\filldraw[black] (" << p.x << "," << p.y << ") circle (" << dot_size_pt << "pt);\n";
     }
 
     tikz << "\\end{tikzpicture}\n";
@@ -296,7 +329,13 @@ int main(int argc, char **argv) {
 
     if (opts.plot) {
         const MstResult *mst_ptr = (opts.show_mst || opts.print_lengths) ? &mst : nullptr;
-        std::string tikz = render_tikz(points, mst_ptr, opts.show_tree, opts.show_mst);
+        std::string tikz = render_tikz(points,
+                                       mst_ptr,
+                                       opts.show_tree,
+                                       opts.show_mst,
+                                       opts.dot_size_pt,
+                                       opts.tree_line_width_pt,
+                                       opts.mst_line_width_pt);
 
         if (!opts.output_path.empty()) {
             std::ofstream out(opts.output_path);
